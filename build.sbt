@@ -4,7 +4,7 @@ ThisBuild / scalaVersion := "3.1.2"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "f2_firsts_steps"
+    name := "fs2_firsts_steps"
   )
 
 val Fs2Version = "3.2.7"

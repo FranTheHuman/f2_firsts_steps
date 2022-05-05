@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaCompilerConfiguration">
-    <profile name="sbt 1" modules="f2_first_steps,f2_firsts_steps" />
+    <profile name="sbt 1" modules="f2_first_steps,f2_firsts_steps,fs2_firsts_steps" />
   </component>
 </project>

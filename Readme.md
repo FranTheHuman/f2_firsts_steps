@@ -40,3 +40,12 @@ As we will see in a moment, all the streams’ definitions are referentially tra
 ## Chunks
 
 Inside, every stream is made of chunks. A Chunk[O] is a finite sequence of stream elements of type O stored inside a structure optimized for indexed based lookup of elements.
+
+## Pipe
+Pipe is a type alias for the function Stream[F, I] => Stream[F, O]
+
+**Represents nothing more than a function between two streams**
+
+## Resource Managemen
+
+The fs2 library implements the bracket pattern to manage resources.

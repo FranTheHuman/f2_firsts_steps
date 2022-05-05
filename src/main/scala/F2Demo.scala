@@ -3,6 +3,9 @@ import cats.effect.std.Queue
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.all.*
 import fs2.{Chunk, INothing, Pipe, Pull, Pure, Stream}
+import scala.concurrent.duration._
+
+import scala.util.Random
 
 object F2Demo extends IOApp.Simple {
 
@@ -93,8 +96,87 @@ object F2Demo extends IOApp.Simple {
   // FlatMap + eval while keeping the original type = evalTap
   val printedJLActors_4: Stream[IO, Actor] = jlActors.evalTap(IO.println)
 
+  // PIPE -------------- = FUNCTION
+  val actorToStringPipe: Pipe[IO, Actor, String] =
+    inStream =>
+      inStream.map(actor => s"${actor.firstName} ${actor.lastName}")
 
-  override def run: IO[Unit] = compileStram
+  def toConsole[A]: Pipe[IO, A, Unit] = inStream => inStream.evalMap(IO.println)
+
+  val stringNamesPrinted = jlActors.through(actorToStringPipe).through(toConsole)
+
+  // ERROR HANDLING --------------
+  def saveToDatabase(actor: Actor): IO[Int] = IO {
+    println(s"Saving $actor")
+    if (Random.nextBoolean()) {
+      throw new RuntimeException("Persistence Layer failed.")
+    }
+    println("Saved.")
+    actor.id
+  }
+
+  val savedJLActors: Stream[IO, Int] = jlActors.evalMap(saveToDatabase)
+  val errorHandledActors: Stream[IO, Int] = savedJLActors.handleErrorWith(error => Stream.emit(-1))
+
+  // atempt
+  val attemptedSavedJLActors: Stream[IO, Either[Throwable, Int]] = savedJLActors.attempt
+  val attemptedProcessed = attemptedSavedJLActors.evalMap {
+    case Left(error) => IO(s"Error: $error").debug
+    case Right(value) => IO(s"Successfully processed actor id: $value").debug
+  }
+
+  // RESOURCE --------------
+  case class DatabaseConnection(url: String)
+
+  def acquireConnection(url: String): IO[DatabaseConnection] = IO {
+    println("Getting DB connection")
+    DatabaseConnection(url)
+  }
+
+  def release(connection: DatabaseConnection): IO[Unit] =
+    IO.println(s"Releasing connection to ${connection.url}")
+
+  // bracket pattern
+  val managedJLActors: Stream[IO, Int] =
+    Stream.bracket(acquireConnection("jdbc://mydatabase.com"))(release).flatMap { conn =>
+      // process a stream using  this resource
+      savedJLActors.evalTap(actorId => IO(s"Saving $actorId to ${conn.url}").debug)
+    }
+
+  // MERGE --------------
+  val concurrentJlActors = jlActors.evalMap { actor => IO {
+    Thread.sleep(400)
+    actor
+  }.debug }
+
+  val concurrentAvengerActors = avengersActors.evalMap { actor => IO {
+    Thread.sleep(200)
+    actor
+  }.debug }
+
+  val mergedActors: Stream[IO, Actor] = concurrentJlActors.merge(concurrentJlActors)
+
+  // concurrently
+  // example: producer-consumer
+  val queue: IO[Queue[IO, Actor]] = Queue.bounded(10)
+  val concurrentSystem = Stream.eval(queue).flatMap { q =>
+    // producer stream
+    val producer: Stream[IO, Unit] =
+      jlActors
+        .evalTap(actor => IO(actor).debug)
+        .evalMap(actor => q.offer(actor)) // enqueue
+        .metered(1.second) // throttle at 1 effect per second
+    // consumer stream
+    val consumer: Stream[IO, Unit] =
+      Stream
+        .fromQueueUnterminated(q)
+        .evalMap(actor => IO(s"Consumed actor $actor").debug.void)
+
+
+    producer.concurrently(consumer)
+  }
+
+  override def run: IO[Unit] = concurrentSystem.compile.drain
 
 
 
