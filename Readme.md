@@ -1,4 +1,4 @@
-# F2 - Firsts steps
+# Fs2 - Firsts steps
 
 ## Streams Introduction
 
@@ -17,7 +17,7 @@ However, streams in the standard library are not as powerful as they could be an
 
 [FS2 Tutorial: More than Functional Streaming in Scala](https://blog.rockthejvm.com/fs2/)
 
-## F2 main features
+## Fs2 main features
 
     - Functional
     - Effectful
